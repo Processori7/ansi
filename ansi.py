@@ -10,11 +10,43 @@ import asyncio
 from datetime import datetime
 from colorama import init, Fore
 import winreg
+import configparser
+from ai4free import KOBOLDAI, BLACKBOXAI, ThinkAnyAI, PhindSearch, DeepInfra
 
 
 init()  # Инициализация colorama
 
-def add_to_path(path, root=winreg.HKEY_CURRENT_USER, key_path='Environment', access=winreg.KEY_ALL_ACCESS):
+# Функция для чтения настроек модели из INI-файла
+def read_model_config():
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    if 'model' in config:
+        return config.get('model', 'name')
+    else:
+        return 'gpt-3.5-turbo'
+
+# Функция для записи настроек модели в INI-файл
+def write_model_config(model_name):
+    config = configparser.ConfigParser()
+    config.add_section('model')
+    config.set('model', 'name', model_name)
+    with open('config.ini', 'w') as configfile:
+        config.write(configfile)
+
+async def show_model():
+    await print_flush2("По умолчанию используется: gpt-3.5-turbo.\nДоступные провайдеры и модели:\n1.KoboldAI - any LLM\n2.Blackbox - Blackbox LLM\n3.ThinkAnyAI - Claude-3-haiku\n4.Phind - Phind LLM\n5.Deepinfra - Meta-Llama-3-70B-Instruct\n6.Gpt 3.5-turbo\n")
+    ans = input("Введите номер выбранной модели, например 5: ")
+    if ans.isdigit() and int(ans) < 10:
+        model_name = ['KoboldAI', 'Blackbox', 'ThinkAnyAI', 'Phind', 'Deepinfra', 'gpt-3.5-turbo'][int(ans) -1]
+        write_model_config(model_name)
+        await print_flush2("Готово, модель добавлена в Config.ini\n")
+        await main()
+        return model_name
+    else:
+        print("Ошибка! Пожалуйста, введите правильное число.")
+        await show_model()
+
+async def add_to_path(path, root=winreg.HKEY_CURRENT_USER, key_path='Environment', access=winreg.KEY_ALL_ACCESS):
     root_key = winreg.ConnectRegistry(None, root)
     key = winreg.OpenKey(root_key, key_path, 0, access)
     value, value_type = winreg.QueryValueEx(key, 'path')
@@ -23,26 +55,24 @@ def add_to_path(path, root=winreg.HKEY_CURRENT_USER, key_path='Environment', acc
     winreg.CloseKey(key)
     winreg.CloseKey(root_key)
 
-def clear_terminal():
+async def clear_terminal():
     """Очищает терминал."""
     try:
         subprocess.run('cls' if os.name == 'nt' else 'clear', shell=True)
     except Exception as e:
         print(f"Ошибка при очистке терминала: {e}")
 
-def print_flush2(text, delay=0.003):
+async def print_flush2(text):
     for char in text:
         sys.stdout.write(char)
         sys.stdout.flush()
-        time.sleep(delay)  # Задержка в секундах
     time.sleep(0.005)  # Задержка перед очисткой терминала
 
-def print_flush3(text):
+async def print_flush3(text):
     for char in text:
         sys.stdout.write(char)
         sys.stdout.flush()
     print()
-    time.sleep(0.00003)  # Задержка перед очисткой терминала
 
 async def print_history():
     if os.path.exists("history.txt"):
@@ -67,16 +97,86 @@ async def communicate_with_model(message):
     except Exception as e:
         return f"Ошибка при общении с моделью: {e}"
 
+async def communicate_with_KoboldAI(user_input):
+    try:
+        koboldai = KOBOLDAI()
+        response = koboldai.chat(user_input)
+        return response
+    except Exception as e:
+        return f"Ошибка при общении с KoboldAI: {e}"
+
+async def communicate_with_BlackboxAI(user_input):
+    try:
+        ai = BLACKBOXAI(
+            is_conversation=True,
+            max_tokens=800,
+            timeout=30,
+            intro=None,
+            filepath=None,
+            update_file=True,
+            proxies={},
+            history_offset=10250,
+            act=None,
+            model=None
+        )
+
+        responce = ai.chat(user_input)
+        return responce
+    except Exception as e:
+        return f"Ошибка при общении с BLACKBOXAI: {e}"
+
+async def communicate_with_ThinkAnyAI(user_input):
+    try:
+        opengpt = ThinkAnyAI()
+        response = opengpt.chat(user_input)
+        return response
+    except Exception as e:
+        return f"Ошибка при общении с ThinkAnyAI: {e}"
+async def communicate_with_Phind(user_input):
+    try:
+        ph = PhindSearch()
+        response = ph.chat(user_input)
+        return response
+    except Exception as e:
+        return f"Ошибка при общении с PhindAI: {e}"
+
+async def communicate_with_DeepInfra(user_input):
+    try:
+        ai = DeepInfra(
+            model="meta-llama/Meta-Llama-3-70B-Instruct",  # DeepInfra models
+            is_conversation=True,
+            max_tokens=800,
+            timeout=30,
+            intro=None,
+            filepath=None,
+            update_file=True,
+            proxies={},
+            history_offset=10250,
+            act=None,
+        )
+        message = ai.ask(user_input)
+        responce = ai.get_message(message)
+        return responce
+    except Exception as e:
+        return f"Ошибка при общении с DeepInfraAI: {e}"
+
+async def save_histoy(user_input, response):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Сохранение истории в файл
+    with open("history.txt", "a") as f:
+        f.write(f"Дата и время: {timestamp}\nВопрос пользователя: {user_input}\nОтвет Ansi: {response}\n\n")
+
 async def main():
     """Основная функция программы."""
     try:
+        config_file = "config.ini"
+        ansi_folder = "C:\\ansi\\"
         # Проверяем, запущен ли скрипт от имени администратора
         if ctypes.windll.shell32.IsUserAnAdmin():
             # Папка для копирования файла
-            ansi_folder = "C:\\ansi\\"
             if not os.path.exists(ansi_folder):
                 os.makedirs(ansi_folder)
-                add_to_path(ansi_folder)
+                await add_to_path(ansi_folder)
 
             # Проверяем наличие файла ansi.exe в папке C:\ansi
             ansi_exe_path = os.path.join(ansi_folder, "ansi.exe")
@@ -85,46 +185,70 @@ async def main():
                 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
                 source_path = os.path.join(desktop_path, "ansi.exe")
                 shutil.copy(source_path, ansi_folder)
+                destination_file = os.path.join(ansi_folder, config_file)
+                shutil.copy(config_file, destination_file)
 
-        print_flush2(
+        # Проверяем, существует ли файл config.ini в папке C:\ansi
+        ansi_config_file_path = os.path.join(ansi_folder, config_file)
+        if os.path.exists(ansi_config_file_path):
+            config = configparser.ConfigParser()
+            config.read(r'C:\ansi\config.ini')
+            if 'model' in config:
+                return config.get('model', 'name')
+            else:
+                return 'gpt-3.5-turbo'
+
+
+        await print_flush2(
 """
 Ansi GPT3 готова к общению.
 Основные команды: 
 - Введите 'выход' или 'ex' или 'exit', чтобы завершить.
 - Введите 'очистить' или 'cls' или 'clear', чтобы удалить переписку.
-- Введите 'история' или 'hsitory', чтобы вывести истрию переписки на экран.\n
+- Введите 'история' или 'hsitory', чтобы вывести истрию переписки на экран.
+- Введите 'model' или 'модель', чтобы выбрать LLM из доступных.\n
 """)
-
-        history = []
 
         while True:
             user_input = input(Fore.LIGHTGREEN_EX + "Вы: " + Fore.WHITE)
             print()
-
             if user_input.lower() in ['история', 'history']:
                 await print_history()
             elif user_input.lower() in ['выход', 'ex', 'exit']:
                 print("До свидания!")
                 sys.exit()
             elif user_input.lower() in ['очистить', 'cls', 'clear']:
-                clear_terminal()
-                history = []
+                await clear_terminal()
+                continue
+            elif user_input.lower() in ['модель', 'model']:
+                await show_model()
                 continue
             else:
-                response = await communicate_with_model(user_input)
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                history.append((timestamp, user_input, response))
+                model_name = read_model_config()
+                print(Fore.YELLOW + f"Ansi {model_name} LLM:" + Fore.WHITE, end=' ')
+                if model_name == 'gpt-3.5-turbo' or not os.path.exists('config.ini'):
+                    response = await communicate_with_model(user_input)
+                elif model_name == 'KoboldAI':
+                    response = await communicate_with_KoboldAI(user_input)
+                elif model_name == 'Blackbox':
+                    response = await communicate_with_BlackboxAI(user_input)
+                elif model_name == 'ThinkAnyAI':
+                    response = await communicate_with_ThinkAnyAI(user_input)
+                elif model_name == 'Phind':
+                    response = await communicate_with_Phind(user_input)
+                elif model_name == 'Deepinfra':
+                    response = await communicate_with_DeepInfra(user_input)
+                else:
+                    response = await communicate_with_model(user_input)
 
-                print(Fore.YELLOW + "Ansi GPT3 LLM:" + Fore.WHITE, end=' ')
-                print_flush3(response + "\n")
-
-                # Сохранение истории в файл
-                with open("history.txt", "a") as f:
-                    for entry in history:
-                        f.write(f"{entry[0]}\nВопрос пользователя: {entry[1]}\nОтвет Ansi: {entry[2]}\n\n")
+                await save_histoy(user_input, response)
+                await print_flush3(response + "\n")
 
     except KeyboardInterrupt:
         print("\nПрограмма завершена пользователем.")
+
+    except Exception as e:
+        print(f"Внимание! Произошла ошибка: {e}\n")
 
 if __name__ == "__main__":
     asyncio.run(main())
