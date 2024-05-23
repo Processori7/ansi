@@ -17,7 +17,6 @@ from ai4free import KOBOLDAI, BLACKBOXAI, ThinkAnyAI, PhindSearch, DeepInfra
 init()  # Инициализация colorama
 
 # Функция для чтения настроек модели из INI-файла
-
 async def read_config_from_drive_c():
     config = configparser.ConfigParser()
     config.read(r'C:\ansi\config.ini')
@@ -28,7 +27,10 @@ async def read_config_from_drive_c():
 
 async def read_model_config():
     config = configparser.ConfigParser()
-    config.read('config.ini')
+    if os.path.exists(r'C:\ansi\config.ini'):
+        config.read(r'C:\ansi\config.ini')
+    else:
+        config.read('config.ini')
     if 'model' in config:
         return config.get('model', 'name')
     else:
@@ -94,15 +96,17 @@ async def print_flush3(text):
     print()
 
 async def print_history():
-    if os.path.exists("history.txt"):
-        with open("history.txt", "r") as f:
+    ansi_folder = "C:\\ansi\\"
+    history_file = os.path.join(ansi_folder, "history.txt")
+    if os.path.exists(history_file):
+        with open(history_file, "r") as f:
             for line in f:
                 print(line.strip())
         ans = input("\nДля возврата в меню введите 'да' или 'yes'\nДля очистки истории введите cls: ")
         if ans.lower() in ['да', 'yes']:
             await main()
         elif ans.lower() == 'cls':
-            os.remove("history.txt")
+            os.remove(history_file)
             print("Готово")
             await main()
     else:
@@ -151,6 +155,7 @@ async def communicate_with_ThinkAnyAI(user_input):
         return response
     except Exception as e:
         return f"Ошибка при общении с ThinkAnyAI: {e}"
+
 async def communicate_with_Phind(user_input):
     try:
         ph = PhindSearch()
@@ -180,9 +185,13 @@ async def communicate_with_DeepInfra(user_input):
         return f"Ошибка при общении с DeepInfraAI: {e}"
 
 async def save_histoy(user_input, response):
+    ansi_folder = "C:\\ansi\\"
+    history_file = os.path.join(ansi_folder, "history.txt")
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     # Сохранение истории в файл
-    with open("history.txt", "a") as f:
+    if not os.path.exists(ansi_folder):
+        os.makedirs(ansi_folder)
+    with open(history_file, "a") as f:
         f.write(f"Дата и время: {timestamp}\nВопрос пользователя: {user_input}\nОтвет Ansi: {response}\n\n")
 
 async def main():
@@ -203,12 +212,16 @@ async def main():
                 # Если файл не найден, копируем его из папки Desktop
                 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
                 source_path = os.path.join(desktop_path, "ansi.exe")
+                shutil.copy(source_path, ansi_folder)
 
         # Проверяем, существует ли файл config.ini в папке C:\ansi
         ansi_config_file_path = os.path.join(ansi_folder, config_file)
-        if os.path.exists(r'C:\ansi\config.ini'):
-            await read_config_from_drive_c()
-
+        if os.path.exists(ansi_config_file_path):
+            model_name = await read_config_from_drive_c()
+        else:
+            model_name = await read_model_config()
+            if not os.path.exists(ansi_config_file_path):
+                await write_model_config_to_drive_c(model_name)
 
         await print_flush2(
 """
@@ -235,7 +248,6 @@ Ansi GPT3 готова к общению.
                 await show_model()
                 continue
             else:
-                model_name = await read_model_config()
                 print(Fore.YELLOW + f"Ansi {model_name} LLM:" + Fore.WHITE, end=' ')
                 if model_name == 'gpt-3.5-turbo' or not os.path.exists('config.ini'):
                     response = await communicate_with_model(user_input)
