@@ -17,7 +17,16 @@ from ai4free import KOBOLDAI, BLACKBOXAI, ThinkAnyAI, PhindSearch, DeepInfra
 init()  # Инициализация colorama
 
 # Функция для чтения настроек модели из INI-файла
-def read_model_config():
+
+async def read_config_from_drive_c():
+    config = configparser.ConfigParser()
+    config.read(r'C:\ansi\config.ini')
+    if 'model' in config:
+        return config.get('model', 'name')
+    else:
+        return 'gpt-3.5-turbo'
+
+async def read_model_config():
     config = configparser.ConfigParser()
     config.read('config.ini')
     if 'model' in config:
@@ -26,19 +35,29 @@ def read_model_config():
         return 'gpt-3.5-turbo'
 
 # Функция для записи настроек модели в INI-файл
-def write_model_config(model_name):
+async def write_model_config(model_name):
     config = configparser.ConfigParser()
     config.add_section('model')
     config.set('model', 'name', model_name)
     with open('config.ini', 'w') as configfile:
         config.write(configfile)
 
+async def write_model_config_to_drive_c(model_name):
+    config = configparser.ConfigParser()
+    config.add_section('model')
+    config.set('model', 'name', model_name)
+    with open(r'C:\ansi\config.ini', 'w') as configfile:
+        config.write(configfile)
+
 async def show_model():
     await print_flush2("По умолчанию используется: gpt-3.5-turbo.\nДоступные провайдеры и модели:\n1.KoboldAI - any LLM\n2.Blackbox - Blackbox LLM\n3.ThinkAnyAI - Claude-3-haiku\n4.Phind - Phind LLM\n5.Deepinfra - Meta-Llama-3-70B-Instruct\n6.Gpt 3.5-turbo\n")
     ans = input("Введите номер выбранной модели, например 5: ")
-    if ans.isdigit() and int(ans) < 10:
+    if ans.isdigit() and int(ans) < 7:
         model_name = ['KoboldAI', 'Blackbox', 'ThinkAnyAI', 'Phind', 'Deepinfra', 'gpt-3.5-turbo'][int(ans) -1]
-        write_model_config(model_name)
+        if os.path.exists(r'C:\ansi\config.ini'):
+            await write_model_config_to_drive_c(model_name)
+        else:
+            await write_model_config(model_name)
         await print_flush2("Готово, модель добавлена в Config.ini\n")
         await main()
         return model_name
@@ -184,19 +203,11 @@ async def main():
                 # Если файл не найден, копируем его из папки Desktop
                 desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
                 source_path = os.path.join(desktop_path, "ansi.exe")
-                shutil.copy(source_path, ansi_folder)
-                destination_file = os.path.join(ansi_folder, config_file)
-                shutil.copy(config_file, destination_file)
 
         # Проверяем, существует ли файл config.ini в папке C:\ansi
         ansi_config_file_path = os.path.join(ansi_folder, config_file)
-        if os.path.exists(ansi_config_file_path):
-            config = configparser.ConfigParser()
-            config.read(r'C:\ansi\config.ini')
-            if 'model' in config:
-                return config.get('model', 'name')
-            else:
-                return 'gpt-3.5-turbo'
+        if os.path.exists(r'C:\ansi\config.ini'):
+            await read_config_from_drive_c()
 
 
         await print_flush2(
@@ -224,7 +235,7 @@ Ansi GPT3 готова к общению.
                 await show_model()
                 continue
             else:
-                model_name = read_model_config()
+                model_name = await read_model_config()
                 print(Fore.YELLOW + f"Ansi {model_name} LLM:" + Fore.WHITE, end=' ')
                 if model_name == 'gpt-3.5-turbo' or not os.path.exists('config.ini'):
                     response = await communicate_with_model(user_input)
