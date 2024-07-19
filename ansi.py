@@ -1,17 +1,15 @@
 import ctypes
 import os
-import pathlib
 import shutil
 import subprocess
 import sys
 import time
-from freeGPT import AsyncClient
 import asyncio
 from datetime import datetime
 from colorama import init, Fore
 import winreg
 import configparser
-from ai4free import KOBOLDAI, BLACKBOXAI, ThinkAnyAI, PhindSearch, DeepInfra
+from webscout import KOBOLDAI, BLACKBOXAI, ThinkAnyAI, PhindSearch, DeepInfra, WEBS as w
 
 
 init()  # Инициализация colorama
@@ -23,7 +21,7 @@ async def read_config_from_drive_c():
     if 'model' in config:
         return config.get('model', 'name')
     else:
-        return 'gpt-3.5-turbo'
+        return 'claude-3-haiku'
 
 async def read_model_config():
     config = configparser.ConfigParser()
@@ -34,7 +32,7 @@ async def read_model_config():
     if 'model' in config:
         return config.get('model', 'name')
     else:
-        return 'gpt-3.5-turbo'
+        return 'claude-3-haiku'
 
 # Функция для записи настроек модели в INI-файл
 async def write_model_config(model_name):
@@ -52,10 +50,10 @@ async def write_model_config_to_drive_c(model_name):
         config.write(configfile)
 
 async def show_model():
-    await print_flush2("По умолчанию используется: gpt-3.5-turbo.\nДоступные провайдеры и модели:\n1.KoboldAI - any LLM\n2.Blackbox - Blackbox LLM\n3.ThinkAnyAI - Claude-3-haiku\n4.Phind - Phind LLM\n5.Deepinfra - Meta-Llama-3-70B-Instruct\n6.Gpt 3.5-turbo\n")
+    await print_flush2("По умолчанию используется: claude-3-haiku.\nДоступные провайдеры и модели:\n1.KoboldAI - any LLM\n2.Blackbox - Blackbox LLM\n3.ThinkAnyAI - Claude-3-haiku\n4.Phind - Phind LLM\n5.Deepinfra - Meta-Llama-3-70B-Instruct\n6.Claude-3-haiku(DuckDuckGo)\n")
     ans = input("Введите номер выбранной модели, например 5: ")
     if ans.isdigit() and int(ans) < 7:
-        model_name = ['KoboldAI', 'Blackbox', 'ThinkAnyAI', 'Phind', 'Deepinfra', 'gpt-3.5-turbo'][int(ans) -1]
+        model_name = ['KoboldAI', 'Blackbox', 'ThinkAnyAI', 'Phind', 'Deepinfra', 'claude-3-haiku'][int(ans) -1]
         if os.path.exists(r'C:\ansi\config.ini'):
             await write_model_config_to_drive_c(model_name)
         else:
@@ -115,8 +113,8 @@ async def print_history():
 async def communicate_with_model(message):
     """Взаимодействует с моделью для генерации ответа."""
     try:
-        resp = await AsyncClient.create_completion("gpt3", message)
-        return resp
+        ans = w().chat(message, model='claude-3-haiku')  # GPT-3.5 Turbo, mixtral-8x7b, llama-3-70b, claude-3-haiku
+        return ans
     except Exception as e:
         return f"Ошибка при общении с моделью: {e}"
 
@@ -249,7 +247,7 @@ Ansi GPT3 готова к общению.
                 continue
             else:
                 print(Fore.YELLOW + f"Ansi {model_name} LLM:" + Fore.WHITE, end=' ')
-                if model_name == 'gpt-3.5-turbo' or not os.path.exists('config.ini'):
+                if model_name == 'claude-3-haiku' or not os.path.exists('config.ini'):
                     response = await communicate_with_model(user_input)
                 elif model_name == 'KoboldAI':
                     response = await communicate_with_KoboldAI(user_input)
