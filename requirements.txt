@@ -1,3 +1,6 @@
 colorama
 webscout
 asyncio
+requests
+packaging
+re

@@ -1,19 +1,61 @@
 
-import ctypes
 import os
+import re
+import sys
 import shutil
 import subprocess
-import sys
+import ctypes
 import time
 import asyncio
 import winreg
 import configparser
+import webbrowser
+import requests
 from datetime import datetime
 from colorama import init, Fore
 from webscout import KOBOLDAI, BLACKBOXAI, ThinkAnyAI, PhindSearch, DeepInfra, WEBS as w
+from packaging import version
 
+
+CURRENT_VERSION = "1.3.2"
 
 init()  # Инициализация colorama
+
+def update_app(update_url):
+   webbrowser.open(update_url)
+
+def check_for_updates():
+    try:
+        # Получение информации о последнем релизе на GitHub
+        response = requests.get("https://api.github.com/repos/Processori7/ansi/releases/latest")
+        response.raise_for_status()
+        latest_release = response.json()
+
+        # Получение ссылки на файл exe последней версии
+        assets = latest_release["assets"]
+        for asset in assets:
+            if asset["name"].endswith(".exe"):
+                download_url = asset["browser_download_url"]
+                break
+        else:
+            print("Не удалось найти файл exe для последней версии.")
+            return
+
+        # Сравнение текущей версии с последней версией
+        latest_version_str = latest_release["tag_name"]
+        match = re.search(r'\d+\.\d+', latest_version_str)
+        if match:
+            latest_version = match.group()
+        else:
+            latest_version = latest_version_str
+
+        if version.parse(latest_version) > version.parse(CURRENT_VERSION):
+            # Предложение пользователю обновление
+            ans = input(f"Доступна новая версия {latest_version}. Хотите обновить?\nВведите да - для обновления.\n>>>").lower()
+            if ans == 'да':
+                update_app(download_url)
+    except requests.exceptions.RequestException as e:
+            print("Ошибка при проверке обновлений:", e)
 
 # Функция для чтения настроек модели из INI-файла
 async def read_config_from_drive_c():
@@ -114,7 +156,7 @@ async def print_history():
 async def communicate_with_model(message):
     """Взаимодействует с моделью для генерации ответа."""
     try:
-        ans = w().chat(message, model='claude-3-haiku')  # GPT-3.5 Turbo, mixtral-8x7b, llama-3-70b, claude-3-haiku
+        ans = w().chat(message, model='gpt-4o-mini')  # gpt-4o-mini, mixtral-8x7b, llama-3-70b, claude-3-haiku
         return ans
     except Exception as e:
         return f"Ошибка при общении с моделью: {e}"
@@ -166,7 +208,7 @@ async def communicate_with_Phind(user_input):
 async def communicate_with_DeepInfra(user_input):
     try:
         ai = DeepInfra(
-            model="meta-llama/Meta-Llama-3-70B-Instruct",  # DeepInfra models
+            model="meta-llama/Meta-Llama-3.1-405B-Instruct",  # DeepInfra models
             is_conversation=True,
             max_tokens=800,
             timeout=30,
@@ -248,7 +290,7 @@ Ansi GPT3 готова к общению.
                 continue
             else:
                 print(Fore.YELLOW + f"Ansi {model_name} LLM:" + Fore.WHITE, end=' ')
-                if model_name == 'claude-3-haiku' or not os.path.exists('config.ini'):
+                if model_name == 'gpt-4o-mini' or not os.path.exists('config.ini'):
                     response = await communicate_with_model(user_input)
                 elif model_name == 'KoboldAI':
                     response = await communicate_with_KoboldAI(user_input)
