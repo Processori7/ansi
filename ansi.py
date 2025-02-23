@@ -13,11 +13,11 @@ import webbrowser
 import requests
 from datetime import datetime
 from colorama import init, Fore
-from webscout import KOBOLDAI, BLACKBOXAI, ThinkAnyAI, PhindSearch, DeepInfra, WEBS as w
+from webscout import KOBOLDAI, BLACKBOXAI, PhindSearch, WEBS as w
 from packaging import version
 
 
-CURRENT_VERSION = "1.3.2"
+CURRENT_VERSION = "1.3.3"
 
 init()  # Инициализация colorama
 
@@ -93,10 +93,10 @@ async def write_model_config_to_drive_c(model_name):
         config.write(configfile)
 
 async def show_model():
-    await print_flush2("По умолчанию используется: claude-3-haiku.\nДоступные провайдеры и модели:\n1.KoboldAI - any LLM\n2.Blackbox - Blackbox LLM\n3.ThinkAnyAI - Claude-3-haiku\n4.Phind - Phind LLM\n5.Deepinfra - Meta-Llama-3-70B-Instruct\n6.Claude-3-haiku(DuckDuckGo)\n")
+    await print_flush2("По умолчанию используется: o3-mini.\nДоступные провайдеры и модели:\n1.KoboldAI - any LLM\n2.Blackbox - Blackbox LLM\n3.Phind - Phind LLM\n4.DuckDuck GO Chat models:\n5.o3-mini\n6.gpt-4o-mini\n7.claude-3-haiku\n8.llama-3.1-70b\n9.mixtral-8x7b")
     ans = input("Введите номер выбранной модели, например 5: ")
     if ans.isdigit() and int(ans) < 7:
-        model_name = ['KoboldAI', 'Blackbox', 'ThinkAnyAI', 'Phind', 'Deepinfra', 'claude-3-haiku'][int(ans) -1]
+        model_name = ['KoboldAI', 'Blackbox', 'ThinkAnyAI', 'Phind','o3-mini', 'gpt-4o-mini','claude-3-haiku','llama-3.1-70b','mixtral-8x7b'][int(ans) -1]
         if os.path.exists(r'C:\ansi\config.ini'):
             await write_model_config_to_drive_c(model_name)
         else:
@@ -153,10 +153,10 @@ async def print_history():
     else:
         print("Ой! История не найдена!\n")
 
-async def communicate_with_model(message):
+async def communicate_with_model(message, model):
     """Взаимодействует с моделью для генерации ответа."""
     try:
-        ans = w().chat(message, model='gpt-4o-mini')  # gpt-4o-mini, mixtral-8x7b, llama-3-70b, claude-3-haiku
+        ans = w().chat(message, model=model)  # gpt-4o-mini, mixtral-8x7b, llama-3-70b, claude-3-haiku
         return ans
     except Exception as e:
         return f"Ошибка при общении с моделью: {e}"
@@ -189,14 +189,6 @@ async def communicate_with_BlackboxAI(user_input):
     except Exception as e:
         return f"Ошибка при общении с BLACKBOXAI: {e}"
 
-async def communicate_with_ThinkAnyAI(user_input):
-    try:
-        opengpt = ThinkAnyAI()
-        response = opengpt.chat(user_input)
-        return response
-    except Exception as e:
-        return f"Ошибка при общении с ThinkAnyAI: {e}"
-
 async def communicate_with_Phind(user_input):
     try:
         ph = PhindSearch()
@@ -204,26 +196,6 @@ async def communicate_with_Phind(user_input):
         return response
     except Exception as e:
         return f"Ошибка при общении с PhindAI: {e}"
-
-async def communicate_with_DeepInfra(user_input):
-    try:
-        ai = DeepInfra(
-            model="meta-llama/Meta-Llama-3.1-405B-Instruct",  # DeepInfra models
-            is_conversation=True,
-            max_tokens=800,
-            timeout=30,
-            intro=None,
-            filepath=None,
-            update_file=True,
-            proxies={},
-            history_offset=10250,
-            act=None,
-        )
-        message = ai.ask(user_input)
-        responce = ai.get_message(message)
-        return responce
-    except Exception as e:
-        return f"Ошибка при общении с DeepInfraAI: {e}"
 
 async def save_histoy(user_input, response):
     ansi_folder = "C:\\ansi\\"
@@ -290,18 +262,22 @@ Ansi GPT3 готова к общению.
                 continue
             else:
                 print(Fore.YELLOW + f"Ansi {model_name} LLM:" + Fore.WHITE, end=' ')
-                if model_name == 'gpt-4o-mini' or not os.path.exists('config.ini'):
-                    response = await communicate_with_model(user_input)
+                if model_name == 'o3-mini' or not os.path.exists('config.ini'):
+                    response = await communicate_with_model(user_input, 'o3-mini')
+                elif model_name == 'claude-3-haiku':
+                    response = await communicate_with_model(user_input, 'claude-3-haiku')
+                elif model_name == 'gpt-4o-mini':
+                    response = await communicate_with_model(user_input, 'gpt-4o-mini')
+                elif model_name == 'llama-3.1-70b':
+                    response = await communicate_with_model(user_input, 'llama-3.1-70b')
+                elif model_name == 'mixtral-8x7b':
+                    response = await communicate_with_model(user_input, 'mixtral-8x7b')
                 elif model_name == 'KoboldAI':
                     response = await communicate_with_KoboldAI(user_input)
                 elif model_name == 'Blackbox':
                     response = await communicate_with_BlackboxAI(user_input)
-                elif model_name == 'ThinkAnyAI':
-                    response = await communicate_with_ThinkAnyAI(user_input)
                 elif model_name == 'Phind':
                     response = await communicate_with_Phind(user_input)
-                elif model_name == 'Deepinfra':
-                    response = await communicate_with_DeepInfra(user_input)
                 else:
                     response = await communicate_with_model(user_input)
 
