@@ -1,5 +1,4 @@
 colorama
-webscout
 asyncio
 requests
 packaging
