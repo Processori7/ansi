@@ -232,7 +232,6 @@ async def get_Polinations_chat_models():
 
 async def main():
     """Основная функция программы."""
-    check_for_updates()
     try:
         if ctypes.windll.shell32.IsUserAnAdmin():
             if not os.path.exists(ansi_folder):
@@ -290,4 +289,5 @@ Ansi GPT3 готова к общению.
         print(f"Внимание! Произошла ошибка: {e}\n")
 
 if __name__ == "__main__":
+    check_for_updates()
     asyncio.run(main())
