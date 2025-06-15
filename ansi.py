@@ -21,6 +21,10 @@ init()  # Инициализация colorama
 def remove_emojis(text):
     return re.sub(r'[\U00010000-\U0010ffff]', '', text)
 
+def remove_sponsor_block(text):
+    # Удаляет всё между **Sponsor и ---
+    return re.sub(r'\*\*Sponsor.*?---', '', text, flags=re.DOTALL).strip()
+
 CURRENT_VERSION = "1.3.4"
 config_file = "config.ini"
 ansi_folder = "C:\\ansi\\"
@@ -138,6 +142,7 @@ async def print_flush2(text):
 
 async def print_flush3(text):
     cleaned_text = remove_emojis(text)
+    cleaned_text = remove_sponsor_block(cleaned_text)
     for char in cleaned_text:
         sys.stdout.write(char)
         sys.stdout.flush()
@@ -146,9 +151,24 @@ async def print_flush3(text):
 async def print_history():
     history_file = os.path.join(ansi_folder, "history.txt")
     if os.path.exists(history_file):
-        with open(history_file, "r") as f:
-            for line in f:
-                print(remove_emojis(line.strip()))
+        try:
+            with open(history_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    cleaned_line = remove_emojis(line.strip())
+                    cleaned_line = remove_sponsor_block(cleaned_line)
+                    print(cleaned_line)
+        except UnicodeDecodeError:
+            print("Файл истории повреждён или записан в другой кодировке.")
+            print("Попытка перечитать с автоматическим определением кодировки...")
+            try:
+                with open(history_file, "r", encoding="utf-8-sig") as f:
+                    for line in f:
+                        cleaned_line = remove_emojis(line.strip())
+                        cleaned_line = remove_sponsor_block(cleaned_line)
+                        print(cleaned_line)
+            except Exception as e:
+                print(f"Не удалось прочитать файл: {e}")
+                print("Рекомендуется очистить историю командой 'cls'")
         ans = input("\nДля возврата в меню введите 'да' или 'yes'\nДля очистки истории введите cls: ")
         if ans.lower() in ['да', 'yes']:
             await main()
@@ -164,8 +184,11 @@ async def save_histoy(user_input, response):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if not os.path.exists(ansi_folder):
         os.makedirs(ansi_folder)
+    cleaned_response = remove_sponsor_block(response)
     with open(history_file, "a", encoding="utf-8") as f:
-        f.write(f"Дата и время: {timestamp}\nВопрос пользователя: {user_input}\nОтвет Ansi: {response}\n\n")
+        f.write(f"Дата и время: {timestamp}\n"
+                f"Вопрос пользователя: {user_input}\n"
+                f"Ответ Ansi: {cleaned_response}\n\n")
 
 async def communicate_with_Pollinations_chat(user_input, model):
     try:
