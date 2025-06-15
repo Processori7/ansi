@@ -232,6 +232,7 @@ async def get_Polinations_chat_models():
 
 async def main():
     """Основная функция программы."""
+    check_for_updates()
     try:
         if ctypes.windll.shell32.IsUserAnAdmin():
             if not os.path.exists(ansi_folder):
