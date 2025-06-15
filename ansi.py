@@ -25,7 +25,7 @@ def remove_sponsor_block(text):
     # Удаляет всё между **Sponsor и ---
     return re.sub(r'\*\*Sponsor.*?---', '', text, flags=re.DOTALL).strip()
 
-CURRENT_VERSION = "1.3.4"
+CURRENT_VERSION = "1.4"
 config_file = "config.ini"
 ansi_folder = "C:\\ansi\\"
 ansi_config_file_path = os.path.join(ansi_folder, config_file)
