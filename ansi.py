@@ -23,9 +23,9 @@ def remove_emojis(text):
 
 def remove_sponsor_block(text):
     # Удаляет всё между **Sponsor и ---
-    return re.sub(r'\*\*Sponsor.*?---', '', text, flags=re.DOTALL).strip()
+    return re.sub(r'---\*\*Sponsor.*?', '', text, flags=re.DOTALL).strip()
 
-CURRENT_VERSION = "1.4"
+CURRENT_VERSION = "1.5"
 config_file = "config.ini"
 ansi_folder = "C:\\ansi\\"
 ansi_config_file_path = os.path.join(ansi_folder, config_file)
@@ -60,8 +60,8 @@ def check_for_updates():
         print("Ошибка при проверке обновлений:", e)
 
 async def read_config_from_drive_c():
-    config = configparser.ConfigParser()
     try:
+        config = configparser.ConfigParser()
         config.read(ansi_config_file_path)
         if 'model' in config and 'name' in config['model']:
             return config.get('model', 'name').strip()
@@ -230,6 +230,54 @@ async def get_Polinations_chat_models():
         print(f"Ошибка при получении списка моделей: {e}")
         return ["o3-mini"]
 
+async def disable_history():
+    config = configparser.ConfigParser()
+
+    # Проверяем, существует ли файл конфигурации
+    if os.path.exists(ansi_config_file_path):
+        config.read(ansi_config_file_path)
+    else:
+        config.read('config.ini')
+
+    if not config.has_section('history'):
+        config.add_section('history')
+
+    # Устанавливаем значение 'write_history' в False, если его нет
+    config.set('history', 'write_history', 'False')
+
+    if os.path.exists(ansi_config_file_path):
+        # Записываем изменения в файл конфигурации
+        with open(ansi_config_file_path, 'w') as configfile:
+            config.write(configfile)
+    else:
+        with open(ansi_config_file_path, 'w') as configfile:
+            config.write(configfile)
+
+async def enable_history():
+    config = configparser.ConfigParser()
+
+    # Проверяем, существует ли файл конфигурации
+    if os.path.exists(ansi_config_file_path):
+        config.read(ansi_config_file_path)
+    else:
+        config.read('config.ini')
+
+    # Проверяем, есть ли секция 'history'
+    if not config.has_section('history'):
+        config.add_section('history')
+
+        # Устанавливаем значение 'write_history' в True, если его нет
+    config.set('history', 'write_history', 'True')
+
+    # Записываем изменения в файл конфигурации
+    if os.path.exists(ansi_config_file_path):
+        # Записываем изменения в файл конфигурации
+        with open(ansi_config_file_path, 'w') as configfile:
+            config.write(configfile)
+    else:
+        with open(ansi_config_file_path, 'w') as configfile:
+            config.write(configfile)
+
 async def main():
     """Основная функция программы."""
     try:
@@ -252,12 +300,14 @@ async def main():
 
         await print_flush2(
 """
-Ansi GPT3 готова к общению.
+Ansi GPT3 готова к общению. По умолчанию ведение истории выключено.
 Основные команды: 
 - Введите 'выход' или 'ex' или 'exit', чтобы завершить.
 - Введите 'очистить' или 'cls' или 'clear', чтобы удалить переписку.
 - Введите 'история' или 'hsitory', чтобы вывести истрию переписки на экран.
 - Введите 'model' или 'модель', чтобы выбрать LLM из доступных.
+- Введите 'dishistory' или 'выклисторию' чтобы выключить ведение истории
+- Введите 'onhistory' или 'вклисторию' чтобы включить ведение истории
 """)
 
         while True:
@@ -274,13 +324,27 @@ Ansi GPT3 готова к общению.
             elif user_input.lower() in ['модель', 'model']:
                 await show_model()
                 continue
+            elif user_input.lower() in ['dishistory', 'выклисторию']:
+                await disable_history()
+                continue
+            elif user_input.lower() in ['onhistory', 'вклисторию']:
+                await enable_history()
+                continue
             else:
-                print(Fore.YELLOW + f"Ansi {model_name} LLM:" + Fore.WHITE, end=' ')
-                if model_name == 'o3-mini' and not os.path.exists('config.ini'):
-                    response = await communicate_with_Pollinations_chat(user_input, 'o3-mini')
+                response = await communicate_with_Pollinations_chat(user_input, model_name)
+                response = remove_sponsor_block(response)
+                response = remove_emojis(response)
+                config = configparser.ConfigParser()
+                if os.path.exists(ansi_config_file_path):
+                    config.read(ansi_config_file_path)
                 else:
-                    response = await communicate_with_Pollinations_chat(user_input, model_name)
-                await save_histoy(user_input, response)
+                    config.read('config.ini')
+
+                # Безопасная проверка на наличие write_history
+                if config.has_option('history', 'write_history'):
+                    ans = config.get('history', 'write_history')
+                    if ans.lower() == 'true':
+                        await save_histoy(user_input, response)
                 await print_flush3(response + "\n")
 
     except KeyboardInterrupt:
